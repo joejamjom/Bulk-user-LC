@@ -1,0 +1,382 @@
+<aura:component controller="BulkProvision" implements="force:appHostable,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId" access="global">
+    
+    <aura:attribute name="TableContent" type="String"  description=" Show the Result class"/>
+    <aura:attribute name="TargetFileName" type="String"  description="Name of the file"/>
+    <aura:attribute name="tableheaders" type="Object[]" />
+    <aura:attribute name="fileContentData" type="String"/>
+    <aura:attribute name="filename" type="String"/>
+    <!-- To display 120 records -->
+    <aura:attribute name="NumOfRecords" type="Integer" default="120"/> 
+    <aura:attribute name="showMain" type="Boolean" default="true"/>
+    <aura:attribute name="showResults" type="Boolean" default="false"/>
+    <aura:attribute name="showLocked" type="Boolean" default="false"/>
+    <aura:attribute name="showUpdatedLocked" type="Boolean" default="false"/>
+    <aura:attribute name="ToBeUpdated" type="Object" />
+    <aura:attribute name="ToBeInserted" type="Object" />
+    <aura:attribute name="wrongValues" type="Object" />
+    <aura:attribute name="LockedJF" type="Object" />
+    
+    
+    
+    <aura:if isTrue="{!v.showMain}">
+        
+        
+        
+        <div  class="slds-m-around--large" ondragover="{!c.onDragOver}" ondrop="{!c.onDrop}" >
+            
+            <div aura:id="holder" class="slds-m-top--medium slds-align--absolute-center" style="background-color:#bfbfb2; height:100px" >
+                <h1>Drag and Drop CSV file here</h1>
+            </div>
+        </div>
+        
+    </aura:if>
+    
+    
+    <aura:if isTrue="{!not(v.showMain)}">
+        <aura:if isTrue="{!not(v.showResults)}">
+            <aura:if isTrue="{!not(v.showLocked)}">
+                
+                
+                    
+                    <ui:outputRichText class="uiOutputRichText slds-m-around--large" value="{!v.TargetFileName}"/> 
+                    <ui:outputRichText class="uiOutputRichText slds-m--around-large" value="{!v.TableContent}"/>
+                
+                <div class="slds-p-around--large slds-align--absolute-center">
+                    <lightning:button label="Go" variant="brand" onclick="{!c.processFileContent}"
+                                      />
+                    <lightning:button label="Cancel" variant="brand" 
+                                      onclick="{!c.cancel}" /> 
+                    
+                </div>
+            </aura:if>
+        </aura:if>
+    </aura:if>
+    
+   
+    
+    <aura:if isTrue="{!not(v.showLocked)}">
+        <aura:if isTrue="{!v.showResults}"> 
+            
+           
+                <div class="slds-p-around--large">
+                    
+                    <!-- Updated users -->
+                    
+                 
+                    <aura:if  isTrue="{!and(not(v.ToBeUpdated.showList), not(v.showUpdatedLocked))}"> 
+
+                        <p style="font-size:25px;">{!v.ToBeUpdated.lstSize}-{!v.ToBeUpdated.headerMsg}</p> 
+                        <br/>
+                    </aura:if>
+                    
+                       
+                    <aura:if  isTrue="{!or(v.ToBeUpdated.showList, v.showUpdatedLocked)}">
+                            
+                            <aura:if  isTrue="{!and(v.ToBeUpdated.showList, not(v.showUpdatedLocked))}">
+                        <h1 style="font-size:25px;">{!v.ToBeUpdated.lstSize}-{!v.ToBeUpdated.headerMsg}</h1> 
+                            </aura:if>
+                            <aura:if  isTrue="{!and(not(v.ToBeUpdated.showList), v.showUpdatedLocked)}">
+                        <h1 style="font-size:25px;">{!v.LockedJF.lstSize}-{!v.ToBeUpdated.headerMsg}</h1> 
+                            </aura:if>
+                            <aura:if  isTrue="{!and(v.ToBeUpdated.showList, v.showUpdatedLocked)}">
+                        <h1 style="font-size:25px;">{!v.ToBeUpdated.lstSize + v.LockedJF.lstSize}-{!v.ToBeUpdated.headerMsg}</h1> 
+                            </aura:if> 
+                        <br/>
+                        
+                        <table class="slds-table slds-table--bordered slds-table--cell-buffer">
+                            <thead>
+                                <tr class="slds-text-title--caps">
+                                    
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="Job Function">Job Function</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="Email">Email</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="First Name">First Name</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="First Name">Last Name</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="Managers Chain">Managers Chain</div>
+                                    </th>
+                                    
+                                </tr>
+                            </thead>
+                            <!--table body start, 
+        Iterate users list as a <tr>
+        -->
+                            <tbody>
+                                <aura:iteration items="{!v.ToBeUpdated.lst}" var="usr">
+                                    <tr>
+                                        
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.Job_Function__c}">{!usr.Job_Function__c}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.Email}">{!usr.Email}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.FirstName}">{!usr.FirstName}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.LastName}">{!usr.LastName}</div>
+                                        </th>
+                                         <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.Manager_Hierarchy_HR__c}">{!usr.Manager_Hierarchy_HR__c}</div>
+                                        </th>
+                                        
+                                    </tr>
+                                </aura:iteration>
+                                
+                                <aura:if isTrue="{!v.showUpdatedLocked}">   
+                                 <aura:iteration items="{!v.LockedJF.lst}" var="lUsr">
+                                    <tr>
+                                        
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!lUsr.Job_Function__c}">{!lUsr.Job_Function__c}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!lUsr.Email}">{!lUsr.Email}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!lUsr.FirstName}">{!lUsr.FirstName}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!lUsr.LastName}">{!lUsr.LastName}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!lUsr.Manager_Hierarchy_HR__c}">{!lUsr.Manager_Hierarchy_HR__c}</div>
+                                        </th>
+                                        
+                                    </tr>
+                                </aura:iteration>
+                                </aura:if> 
+                            </tbody>
+                        </table>
+                    </aura:if>  
+                    
+                </div>
+           
+            
+            <!-- End of updated users -->
+            
+            
+            <!-- Inserted users -->
+            
+                <div class="slds-p-around--large">
+                    
+                    <aura:if isTrue="{!not(v.ToBeInserted.showList)}"> 
+                        <p style="font-size:25px;">{!v.ToBeInserted.lstSize}-{!v.ToBeInserted.headerMsg}</p> 
+                        <br/>
+                    </aura:if>
+                    
+                    <aura:if isTrue="{!v.ToBeInserted.showList}"> 
+                        
+                        <p style="font-size:25px;">{!v.ToBeInserted.lstSize}-{!v.ToBeInserted.headerMsg}</p> 
+                        <br/>
+                        
+                        
+                        <table class="slds-table slds-table--bordered slds-table--cell-buffer">
+                            <thead>
+                                <tr class="slds-text-title--caps">
+                                    
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="Job Function">Job Function</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="Email">Email</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="First Name">First Name</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="Last Name">Last Name</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="Managers Chain">Managers Chain</div>
+                                    </th>
+                                    
+                                </tr>
+                            </thead>
+                            <!--table body start, 
+        Iterate users list as a <tr>
+        -->
+                            <tbody>
+                                <aura:iteration items="{!v.ToBeInserted.lst}" var="usr">
+                                    <tr>
+                                        
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.Job_Function__c}">{!usr.Job_Function__c}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.Email}">{!usr.Email}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.FirstName}">{!usr.FirstName}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.LastName}">{!usr.LastName}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.Manager_Hierarchy_HR__c}">{!usr.Manager_Hierarchy_HR__c}</div>
+                                        </th>
+                                        
+                                    </tr>
+                                </aura:iteration>
+                            </tbody>
+                        </table>
+                        
+                    </aura:if>
+                </div>
+            <!-- end of inserted users -->
+            
+            <!-- Wrong jf -->
+            
+                <div class="slds-p-around--large">
+                    
+                  <!--  <aura:if isTrue="{!not(v.wrongValues.showList)}"> 
+                        <p style="font-size:25px;">{!v.wrongValues.lstSize}-{!v.wrongValues.headerMsg}</p> 
+                        <br/>
+                    </aura:if> -->
+                    <aura:if isTrue="{!v.wrongValues.showList}"> 
+                        
+                        <h1 style="font-size:25px; color:red;" >{!v.wrongValues.lstSize}-{!v.wrongValues.headerMsg}</h1> 
+                        ( ------- = Empty values)
+                        <br/>
+                        
+                        
+                        <table class="slds-table slds-table--bordered slds-table--cell-buffer">
+                            <thead>
+                                <tr class="slds-text-title--caps">
+                                    
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="Job Function">Job Function</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="Email">Email</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="First Name">First Name</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="Last Name">Last Name</div>
+                                    </th>
+                                    <th scope="col">
+                                        <div class="slds-truncate" title="Managers Chain">Managers Chain</div>
+                                    </th>
+                                    
+                                </tr>
+                            </thead>
+                            <!--table body start, 
+        Iterate users list as a <tr>
+        -->
+                            <tbody>
+                                <aura:iteration items="{!v.wrongValues.lst}" var="usr">
+                                    <tr>
+                                        
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.Job_Function__c}">{!usr.Job_Function__c}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.Email}">{!usr.Email}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.FirstName}">{!usr.FirstName}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.LastName}">{!usr.LastName}</div>
+                                        </th>
+                                        <th scope="row">
+                                            <div class="slds-truncate" title="{!usr.Manager_Hierarchy_HR__c}">{!usr.Manager_Hierarchy_HR__c}</div>
+                                        </th>
+                                        
+                                    </tr>
+                                </aura:iteration>
+                            </tbody>
+                        </table>
+                    </aura:if>
+                </div>
+            
+            <!-- End of wrong jf -->
+            
+                <div class="slds-p-around--large slds-align--absolute-center">
+                    <lightning:button label="Done" variant="brand" 
+                                      onclick="{!c.cancel}" /> 
+                </div>
+        </aura:if> 
+    </aura:if>
+    
+    <!-- Locked jf -->
+    <aura:if isTrue="{!v.showLocked}">    
+
+            <div class="slds-p-around--large">
+                
+                
+                
+                <h1 style="font-size:25px;" >{!v.LockedJF.lstSize}-{!v.LockedJF.headerMsg}</h1> 
+                <br/>
+                
+                
+                <table class="slds-table slds-table--bordered slds-table--cell-buffer">
+                    <thead>
+                        <tr class="slds-text-title--caps">
+                            
+                            <th scope="col">
+                                <div class="slds-truncate" title="Job Function">Job Function</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate" title="Email">Email</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate" title="First Name">First Name</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate" title="Last Name">Last Name</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate" title="Managers Chain">Managers Chain</div>
+                            </th>
+                            
+                        </tr>
+                    </thead>
+                    <!--table body start, 
+        Iterate users list as a <tr>
+        -->
+                    <tbody>
+                        <aura:iteration items="{!v.LockedJF.lst}" var="usr">
+                            <tr>
+                                
+                                <th scope="row">
+                                    <div class="slds-truncate" title="{!usr.Job_Function__c}">{!usr.Job_Function__c}</div>
+                                </th>
+                                <th scope="row">
+                                    <div class="slds-truncate" title="{!usr.Email}">{!usr.Email}</div>
+                                </th>
+                                <th scope="row">
+                                    <div class="slds-truncate" title="{!usr.FirstName}">{!usr.FirstName}</div>
+                                </th>
+                                <th scope="row">
+                                    <div class="slds-truncate" title="{!usr.LastName}">{!usr.LastName}</div>
+                                </th>
+                                <th scope="row">
+                                    <div class="slds-truncate" title="{!usr.Manager_Hierarchy_HR__c}">{!usr.Manager_Hierarchy_HR__c}</div>
+                                </th>
+                                
+                            </tr>
+                        </aura:iteration>
+                    </tbody>
+                </table>
+            </div>
+        <div class="slds-p-around--large slds-align--absolute-center">
+            <lightning:button label="Yes, Include them" variant="brand" onclick="{!c.processWithLocked}"/>
+            <lightning:button label="No, Don't include them" variant="brand" onclick="{!c.processWithoutLocked}"/>
+            <lightning:button label="Cancel" variant="brand" onclick="{!c.cancel}" /> 
+                    
+                </div>
+    </aura:if>
+    <!-- End of Locked jf -->
+</aura:component>
+
