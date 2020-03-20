@@ -1,0 +1,297 @@
+/**
+* @group User
+* @description  an implementation of Bulk provisioning lightning 
+* componenet that handles the list of users uploaded and
+* upserts them based of the job function assigned to each user
+*/
+public with sharing class BulkProvision {
+    
+    public static List<user>  ToBeUpdated  = new List<user>();
+    public static List<user> ToBeInserted = new List<user>();
+    public static List<user> Duplicates = new List<user>();
+    public static List<user> wrongValues = new List<user>();
+    public static List<user> UsersList = new List<user>();
+    public static List<user> LockedJF = new List<user>();
+    public static List<string> jf = new List<string>();
+    public static list<wrapperClass> wcList = new list<wrapperClass>();
+    public static map<string,user> usersMap = new map<string,user>();
+    
+    
+    /**
+* @description Method that sorts the users list to existing users
+* that will be updated and non existing users that will be inserted
+* and users with wrong values 
+* @return A	wrapperclass type of list of object.
+*/
+    @AuraEnabled
+    public static list<wrapperClass> processData(String fileData,String sobjectName,List<String> fields) {
+        
+        /**  System.debug('fileData:::'+filedata);
+System.debug('sobjectName:::'+sobjectName);
+System.debug('fields:::'+fields);*/
+        
+        
+        
+        Schema.DescribeFieldResult fieldResult = user.job_function__c.getDescribe();
+        List<Schema.PicklistEntry> ple = fieldResult.getPicklistValues();
+        for( Schema.PicklistEntry f : ple) {
+            
+            jf.add(f.getValue().toLowerCase());
+        }
+        
+        Schema.SObjectType targetType = Schema.getGlobalDescribe().get(sobjectName);
+        try{
+            if(fileData!=null){ 
+                String[] fileLines = new String[]{};
+                    fileLines = fileData.split('\n');
+                //for content
+                List<sObject> myList = new List<sObject>();
+                
+                for (Integer i=1,j=fileLines.size();i<j;i++){
+                    String[] inputvalues = new String[]{};
+                        inputvalues = fileLines[i].split(',');
+                    //'Job_Function__c','Email','FirstName','LastName',
+                    //username, Alias, TimeZoneSidKey, localesidkey, emailencodingkey, profileid, userroleid,LanguageLocaleKey
+                    User rso = new User();
+                    
+                    rso.Job_Function__c = String.isBlank(inputvalues.get(0)) ? '-------' : inputvalues.get(0);
+                    rso.Email 	        = String.isBlank(inputvalues.get(1)) ? '-------' : inputvalues.get(1);
+                    rso.FirstName 		= String.isBlank(inputvalues.get(2)) ? '-------' : inputvalues.get(2);
+                    rso.LastName 		= String.isBlank(inputvalues.get(3)) ? '-------' : inputvalues.get(3);
+                    usersMap.put(rso.email, rso);
+                }
+                
+                
+                
+                
+                if(usersMap.size()>0){
+                    
+                    for(user us: usersMap.values()){
+                        if(us.email == '-------' || us.job_function__c  == '-------' || !jf.contains(us.job_function__c.toLowerCase()) || 
+                           !validateEmail(us.email)){
+                               wrongValues.add(us);
+                               usersMap.remove(us.email);
+                           }
+                    }
+                    
+                    try{
+                        UsersList = [select id,Is_Lock_Job_Function__c, Manager_Hierarchy_HR__c, job_function__c,firstname,
+                                     lastname, email
+                                     from user 
+                                     where  email in :usersMap.keySet() ];}
+                    catch(exception err){System.debug('select exception '+err);}
+                    
+                    
+                    for(user us: usersMap.values()){
+                        
+                        if(us.email != UserInfo.getUserEmail()){
+                            
+                            
+                            boolean userExists =  ListContainsEmail(us.email);
+                            
+                            if((us.FirstName  == '-------' || us.LastName  == '-------') && !userExists )
+                            {
+                                wrongValues.add(us);
+                            }
+                            
+                            else if(userExists && us.Is_Lock_Job_Function__c == true){
+                                
+                                LockedJF.add(us);
+                            }
+                            
+                            else if(userExists && us.Is_Lock_Job_Function__c != true){
+                                
+                                ToBeUpdated.add(us);
+                                
+                            }
+                            
+                            else if(!userExists) {
+                                ToBeInserted.add(us);
+                            }
+                            
+                        }
+                    }}    
+                
+                
+                
+                system.Debug('Update    =    '+ToBeUpdated.size());
+                system.Debug('Insert    =    '+ToBeInserted.size());
+                system.Debug('wrongValues    =    '+wrongValues.size());
+                system.Debug('LockedJF    =    '+LockedJF.size());  
+            }
+            
+        }catch(Exception e){
+            System.debug('final exception'+e);   
+        }
+        
+        wcList.add(methodToReturnWrapper('ToBeUpdated'));
+        wcList.add(methodToReturnWrapper('ToBeInserted'));
+        wcList.add(methodToReturnWrapper('wrongValues'));
+        wcList.add(methodToReturnWrapper('LockedJF'));
+        
+        if(LockedJF.size()<1){
+            RunUpsert('false',ToBeInserted,ToBeUpdated,wrongValues);
+        }
+        
+        return(wcList);
+    }
+    
+    
+    /**
+* @description wrapper class to create an object with the list,
+* list size, header message for the component and a boolean to indicate whether 
+* to show the list or not
+*/    
+    public class wrapperClass{
+        @AuraEnabled public integer lstSize;
+        @AuraEnabled public  list<user> lst;
+        @AuraEnabled public string headerMsg;
+        @AuraEnabled public boolean showList;  
+    }
+    //////////////////////////////////////
+    /**
+* @description Method that gets the instance and sets the
+*  users suffix accordingly
+* @return string suffix
+*/
+    Public static string Suffixsetter(){
+        
+        string Suffix;
+        String curinstance = System.URL.getSalesforceBaseUrl().getHost();
+        boolean runningInASandbox = [SELECT IsSandbox FROM Organization LIMIT 1].IsSandbox;
+        // system.Debug('curinstance    =    '+curinstance);
+        
+        if(runningInASandbox){
+            if(curinstance.containsIgnoreCase('TOPS')){Suffix = '.gcv.tops';}
+            else if(curinstance.containsIgnoreCase('UAT')){Suffix = '.gcv.uat';}
+            else if(curinstance.containsIgnoreCase('TiNt')){Suffix = '.gcv.TiNt';}
+            else if(curinstance.containsIgnoreCase('TEMO')){Suffix = '.gcv.TEMO';} 
+            else {Suffix = '.gcv.test';}
+        }
+        else{suffix = '.gcv';}
+        return Suffix; 
+    }
+    
+    /**
+* @description Method that validates the email 
+* format and checks if the it is a google email
+* @param string email
+* @return boolean res
+*/    
+    public static Boolean validateEmail(String email) {
+        Boolean res = true;
+        
+        String emailRegex = '^[a-zA-Z0-9._|\\\\%#~`=?&/$^*!}{+-]+@google.com';
+        Pattern MyPattern = Pattern.compile(emailRegex);
+        Matcher MyMatcher = MyPattern.matcher(email);
+        
+        if (!MyMatcher.matches()) 
+            res = false;
+        return res;	
+    }
+    
+    /**
+* @description Method that validates if the user 
+* is in vector by checking if it exists in the userslist 
+* @param string email
+* @return boolean 
+*/    
+    public static boolean ListContainsEmail(String email) {
+        boolean userExists = false;
+        
+        for(integer i = 0; i<UsersList.size() && userExists == false ; i++){
+            if(UsersList[i].email == email){
+                userExists = true ;
+                usersMap.get(email).Is_Lock_Job_Function__c = UsersList[i].Is_Lock_Job_Function__c;
+                usersMap.get(email).id = UsersList[i].id;
+                usersMap.get(email).firstName = UsersList[i].firstName;
+                usersMap.get(email).lastName = UsersList[i].lastName;
+            }
+        }
+            return userExists;	
+        }
+    
+        
+    /**
+* @description Method that creates and assign values to the wrapper class object 
+* @param string name of the list
+* @return wrapperclass object 
+*/    
+    @AuraEnabled
+    public static wrapperClass methodToReturnWrapper(string lst){
+        
+        wrapperClass wc = new wrapperClass();
+        
+        if(lst == 'ToBeUpdated'){
+            //   ToBeUpdated = Duplicates(ToBeUpdated);
+            wc.lstSize = ToBeUpdated.size();
+            wc.lst = ToBeUpdated;
+            wc.headerMsg = 'User(s) updated:';
+            wc.showList = wc.lstSize > 0 ? true :  false;}  
+        
+        else if(lst == 'ToBeInserted'){
+            //  ToBeInserted = Duplicates(ToBeInserted);
+            wc.lstSize = ToBeInserted.size();
+            wc.lst = ToBeInserted;
+            wc.headerMsg = 'User(s) inserted:';
+            wc.showList = wc.lstSize > 0 ? true :  false;} 
+        
+        else if(lst == 'wrongValues'){
+            // wrongValues = Duplicates(wrongValues);
+            wc.lstSize = wrongValues.size();
+            wc.lst = wrongValues;
+            wc.headerMsg = 'User(s) with wrong/null values:';
+            wc.showList = wc.lstSize > 0 ? true :  false;} 
+        
+        else if(lst == 'LockedJF'){
+            //  LockedJF = Duplicates(LockedJF);
+            wc.lstSize = LockedJF.size();
+            wc.lst = LockedJF;
+            wc.headerMsg = ' user(s) have a locked job function, are you sure you want to update them ?';
+            wc.showList = wc.lstSize > 0 ? true :  false;} 
+        
+        //  system.debug(wc);
+        return (wc);
+    }
+    /**
+* @description Method called by the JS helper to perform the upsert on users
+* @param string isincluded, to include users with locked jf or not
+* @param list of users to be inserted TBI
+* @param list of users to be updated TBU
+* @param list of users to with locked JFs
+*/   
+    @AuraEnabled
+    public static void RunUpsert(string isIncluded,list<user> TBI,list<user> TBU,list<user> LJF){
+        
+        if(TBI.size()>0){
+            
+            string suffix = Suffixsetter();
+            String ProfileId = [select id from profile where name = 'Default User' limit 1 ].id;
+            String UserRoleId = [select id from userrole where name = 'Default role' limit 1].id;
+            for(user addfields: TBI){
+                
+                addfields.Username = addfields.Email+suffix;
+                addfields.Alias =(addfields.FirstName.left(1)+addfields.LastName.left(4));
+                addfields.TimeZoneSidKey =('America/Los_Angeles');
+                addfields.LocaleSidKey = ('en_US');
+                addfields.EmailEncodingKey = ('ISO-8859-1');
+                addfields.Profileid = (ProfileId);
+                addfields.UserRoleId = (UserRoleId);
+                addfields.LanguageLocaleKey = ('en_US');
+            }
+            
+            // TBI= Duplicates(TBI);
+            insert TBI;
+        }
+        
+        if(TBU.size()>0){
+            //   TBU =  Duplicates(TBU);
+            update TBU;}
+        
+        
+        if(isIncluded == 'include'){
+            //  LJF =  Duplicates(LJF);
+            update LJF;}
+    }
+    
+}
