@@ -1,0 +1,47 @@
+({
+    onDragOver : function(component, event, helper) {
+        event.preventDefault();
+    },
+    
+    onDrop : function(component, event, helper) {
+        event.stopPropagation();
+        event.preventDefault();
+        event.dataTransfer.dropEffect="copy";
+        var files=event.dataTransfer.files;
+        helper.readFile(component,helper,files[0]);
+       
+    },
+    
+    processFileContent : function(component,event,helper){
+        var selectedEventId = event.target.id;
+        var msg ='Are you sure you want to proceed with the update/insert?';
+        if (!confirm(msg)) {
+            console.log('No');
+            return false;
+        } else {
+            console.log('Yes');
+           helper.saveRecords(component,event);
+        }
+       
+      
+    },
+
+    processWithLocked : function(component,event,helper){
+        helper.CallApexFunction(component,event, "include",component.get("v.ToBeInserted.lst"),
+                                component.get("v.ToBeUpdated.lst"),component.get("v.LockedJF.lst"));
+     component.set("v.showUpdatedLocked",true);   
+    },
+    
+     processWithoutLocked : function(component,event,helper){
+        helper.CallApexFunction(component,event, "false",component.get("v.ToBeInserted.lst"),
+                                component.get("v.ToBeUpdated.lst"),component.get("v.LockedJF.lst"));
+         component.set("v.showUpdatedLocked",false);
+    },
+
+    cancel : function(component,event,helper){
+        component.set("v.showMain",true);
+        component.set("v.showResults",false);
+         component.set("v.showLocked",false);
+    }
+})
+
